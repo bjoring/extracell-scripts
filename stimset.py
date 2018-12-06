@@ -61,9 +61,10 @@ def clean(f='../Stims1'):
     for i in songfiles:
         fs,s = read(i)
         songs.append(s)
-    stims = np.zeros((len(songs),len(songs[0]),2))
-    for i in range(len(songs)):
-        stims[i] = pulsestim(songs[i])
+    stims = np.asarray(songs)
+    #stims = np.zeros((len(songs),len(songs[0]),2))
+    #for i in range(len(songs)):
+        #stims[i] = pulsestim(songs[i])
     return(stims,fs,songnames)
     
     
