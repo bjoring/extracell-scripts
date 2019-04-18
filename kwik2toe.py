@@ -12,6 +12,7 @@ import numpy as np
 import pandas as pd
 import argparse
 import os
+import inspect_auditory as ia
 
 Fs = 30000.0
 
@@ -20,6 +21,8 @@ def make_toes(fp,t,s):
     #either do all the shanks or just the one specified
     if s == 4:
         shanks = range(4)
+    elif s == 8:
+        shanks = range(8)
     else:
         shanks = [s]
         
@@ -32,6 +35,7 @@ def make_toes(fp,t,s):
     align = pd.read_csv(alignfile)
     
     for shank in shanks:
+        print(shank)
         #open the .kwik file and pull out the lists of spikes and clusters
         with h5py.File(fp) as kwik:
             spikes = np.asarray(kwik['channel_groups/'+str(shank)+'/spikes/time_samples'])
@@ -72,6 +76,7 @@ def make_toes(fp,t,s):
                 toefile = os.path.join(dirname, "%s.toe_lis" % name)
                 with open(toefile, "wt") as ftl:
                     tl.write(ftl, np.asarray(f))
+            ia.auditory_plot(dirname)
                     
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()

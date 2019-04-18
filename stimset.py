@@ -9,7 +9,7 @@ Created on Wed Feb 21 10:07:45 2018
 def pulsestim(stim):
     import numpy as np
     pulse = np.zeros(len(stim))
-    pulse[0] = 1
+    pulse[0] = 0.75
     pstim = np.transpose(np.vstack((np.asarray(stim)/(2**15-1),pulse)))
     return pstim
 
