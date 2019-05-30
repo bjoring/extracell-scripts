@@ -71,7 +71,7 @@ def make_toes(fp,t,s):
                     f.append(np.asarray(s[rec]))
                 #put together an informative  name for the file
                 song = list(align.song[align.stim==stim].unique())[0]
-                cond = ''.join(list(align.condition[align.stim==stim].unique())[0].split('+'))
+                cond = list(align.condition[align.stim==stim].unique())[0]
                 name = "%s_%s" % (song, cond)
                 toefile = os.path.join(dirname, "%s.toe_lis" % name)
                 with open(toefile, "wt") as ftl:

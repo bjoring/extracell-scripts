@@ -13,8 +13,20 @@ import sudoku as sdk
 import stimset as ss
 import argparse
 import glob
+import numpy as np
 
-def search(stimset='../Stims1'):
+def rms(y):
+    return (np.sqrt(np.mean(y.astype(float)**2)))
+
+def dB(y):
+    a0 = 0.00001*(2**15-1)
+    return (20*np.log10(rms(y)/a0))
+
+def scale(dB):
+    a0 = 0.00001*(2**15-1)
+    return (a0*(10**(dB/20)))
+
+def search(stimset='../Search'):
 
     # Connect network handler
     ip = '127.0.0.1'
@@ -26,7 +38,7 @@ def search(stimset='../Stims1'):
     songfiles = glob.glob(stimset+'/*.wav')
     size = len(songfiles)
     present_order = sdk.seqorder(size)
-    stim,Fs,songname = ss.clean(stimset)
+    stim,Fs,songname = ss.dBclean(stimset)
     print(songname)
     
     with zmq.Context() as context:
@@ -48,7 +60,7 @@ def search(stimset='../Stims1'):
             try:
                 while True:
                     for i in range(len(present_order)):
-                        sd.play(stim[present_order[i]-1],Fs)
+                        sd.play(ss.pulsestim(stim[present_order[i]-1],True),Fs)
                         sd.wait()
                         time.sleep(2)
             except KeyboardInterrupt:
@@ -62,6 +74,6 @@ def search(stimset='../Stims1'):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('-ss','--stimset',help='Directory of stimulus set',required=False,default='../Stims1')
+    parser.add_argument('-ss','--stimset',help='Directory of stimulus set',required=False,default='../Search')
     args = parser.parse_args()
     search(args.stimset)

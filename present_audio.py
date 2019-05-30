@@ -22,49 +22,67 @@ import pandas as pd
 import os
 from scipy.io.wavfile import read
 
+def rms(y):
+    return (np.sqrt(np.mean(y.astype(float)**2)))
+
+def dB(y):
+    a0 = 0.00001*(2**15-1)
+    return (20*np.log10(rms(y)/a0))
+
+def scale(dB):
+    a0 = 0.00001*(2**15-1)
+    return (a0*(10**(dB/20)))
+
 def write_log(bird,location,stimset,stimtype,songname,recpath,presentation,seed=None):
     log = {
     "bird":bird,
     "location":location,
     "seed":seed,
-    "stimset":stimset,
+    "stimset":os.path.basename(stimset),
     "stimtype":stimtype,
     "songs":songname,
     "path":recpath.decode(),
     "presentation":presentation,
     }
-    with open('/'.join(recpath.decode().split('/'))+'/'+recpath.decode().split('/')[-1]+'.log','w') as f:
+    with open(os.path.join(recpath.decode(),os.path.basename(recpath.decode())+'.log'),'w') as f:
         json.dump(log,f)
     print("Log written to file.")
     
 def make_stims(stimset,seed):
-    song,Fs,songname = ss.clean(stimset)
-    stype = ['continuous','continuous+noise1','continuous+noise2','gap1','gap2','gap+noise1','gap+noise2','noise1','noise2']
+    if '180B' in stimset or '178B' in stimset:
+        song,Fs,songname = ss.dBclean('../178B')
+        song2,Fs,songname2 = ss.dBclean('../180B')
+        song = np.concatenate((song,song2),0)
+        songname = songname+songname2
+    else:
+        song,Fs,songname = ss.dBclean(stimset)
+    stype = ['continuous','continuousnoise1','continuousnoise2','gap1','gap2','gapnoise1','gapnoise2','noise1','noise2']
     syllables = pd.read_csv('../restoration_syllables.csv')
     conditions = len(stype)
     trials = 10
     size = len(songname)*conditions
     present_order = sdk.seqorder(size,trials)
     presentation = {}
-    stims = np.zeros((size,len(song[0])))
+    stims = []
     np.random.seed(seed)
     for i in range(len(songname)):    
         ssyll = syllables.loc[syllables.songid==songname[i]]
-        sg = np.random.choice(len(ssyll.loc[1:-1]),2,replace=False)
+        sg = np.random.choice(ssyll.iloc[1:-1].index,2,replace=False)
         blocks = np.zeros((2,2))
-        blocks[:,0] = np.asarray([list(ssyll.start)[sg[x]] for x in range(2)])
-        blocks[:,1] = np.asarray([list(ssyll.end)[sg[x]] for x in range(2)])
+        blocks[:,0] = np.asarray([ssyll.start[sg[x]] for x in range(2)])
+        blocks[:,1] = np.asarray([ssyll.end[sg[x]] for x in range(2)])
         blocks = blocks*Fs
         blocks = blocks.astype(int)
         gsize = int(0.1*Fs)
         wnamp = 25000
+        wndB = 85
         if blocks[0,1]-blocks[0,0] > gsize:
-            middle = np.mean(blocks,1)
-            blocks[0,0] = middle[0]-int(gsize/2)-50
+            #middle = np.mean(blocks,1)
+            #blocks[0,0] = middle[0]-int(gsize/2)-50
             blocks[0,1] = blocks[0,0]+gsize
         if blocks[1,1]-blocks[1,0] > gsize:
-            middle = np.mean(blocks,1)
-            blocks[1,0] = middle[1]-int(gsize/2)-50
+            #middle = np.mean(blocks,1)
+            #blocks[1,0] = middle[1]-int(gsize/2)-50
             blocks[1,1] = blocks[1,0]+gsize
         N = 50
         ix = np.arange(N*3)
@@ -78,78 +96,88 @@ def make_stims(stimset,seed):
                 "type":stype[k],
                 }  
             if k == 0:
-                stims[order] = song[i]
+                stims.append(song[i])
             elif k==1:
                 presentation[order]['gaps'] = blocks[0].tolist()
                 wn = np.random.normal(0,wnamp,size=blocks[0,1]-blocks[0,0])
-                stims[order] = np.concatenate((song[i][:blocks[0,0]],
+                wn = (wn/rms(wn))*scale(wndB)
+                stims.append(np.concatenate((song[i][:blocks[0,0]],
                                                  song[i][blocks[0,0]:blocks[0,1]]+wn,
-                                                 song[i][blocks[0,1]:]))   
+                                                 song[i][blocks[0,1]:])))   
             elif k==2:
                 presentation[order]['gaps'] = blocks[1].tolist()
                 wn = np.random.normal(0,wnamp,size=blocks[1,1]-blocks[1,0])
-                stims[order] = np.concatenate((song[i][:blocks[1,0]],
-                                                 song[i][blocks[1,0]:blocks[0,1]]+wn,
-                                                 song[i][blocks[1,1]:]))            
+                wn = (wn/rms(wn))*scale(wndB)
+                stims.append(np.concatenate((song[i][:blocks[1,0]],
+                                                 song[i][blocks[1,0]:blocks[1,1]]+wn,
+                                                 song[i][blocks[1,1]:])))         
             elif k==3:
                 presentation[order]['gaps'] = blocks[0].tolist()
-                stims[order] = np.concatenate((song[i][:blocks[0,0]],
+                stims.append(np.concatenate((song[i][:blocks[0,0]],
                                                  song[i][blocks[0,0]:blocks[0,0]+len(fadein)]*fadeout,
                                                  np.zeros(blocks[0,1]-blocks[0,0]-len(fadein)*2),
                                                  song[i][blocks[0,1]-len(fadein):blocks[0,1]]*fadein,
-                                                 song[i][blocks[0,1]:]))
+                                                 song[i][blocks[0,1]:])))
             elif k==4:
                 presentation[order]['gaps'] = blocks[1].tolist()
-                stims[order] = np.concatenate((song[i][:blocks[1,0]],
+                stims.append(np.concatenate((song[i][:blocks[1,0]],
                                                  song[i][blocks[1,0]:blocks[1,0]+len(fadein)]*fadeout,
                                                  np.zeros(blocks[1,1]-blocks[1,0]-len(fadein)*2),
                                                  song[i][blocks[1,1]-len(fadein):blocks[1,1]]*fadein,
-                                                 song[i][blocks[1,1]:]))
+                                                 song[i][blocks[1,1]:])))
             elif k==5:
                 presentation[order]['gaps'] = blocks[0].tolist()
                 wn = np.random.normal(0,wnamp,size=blocks[0,1]-blocks[0,0])
-                stims[order] = np.concatenate((song[i][:blocks[0,0]],
+                wn = (wn/rms(wn))*scale(wndB)
+                stims.append(np.concatenate((song[i][:blocks[0,0]],
                                                  wn,
-                                                 song[i][blocks[0,1]:]))
+                                                 song[i][blocks[0,1]:])))
             elif k==6:
                 presentation[order]['gaps'] = blocks[1].tolist()
                 wn = np.random.normal(0,wnamp,size=blocks[1,1]-blocks[1,0])
-                stims[order] = np.concatenate((song[i][:blocks[1,0]],
+                wn = (wn/rms(wn))*scale(wndB)
+                stims.append(np.concatenate((song[i][:blocks[1,0]],
                                                  wn,
-                                                 song[i][blocks[1,1]:]))
+                                                 song[i][blocks[1,1]:])))
             elif k==7:
                 presentation[order]['gaps'] = blocks[0].tolist()
                 wn = np.random.normal(0,wnamp,size=blocks[0,1]-blocks[0,0])
+                wn = (wn/rms(wn))*scale(wndB)
                 temp = np.zeros(len(song[i]))
-                stims[order] = np.concatenate((temp[:blocks[0,0]],
+                stims.append(np.concatenate((temp[:blocks[0,0]],
                                                  wn,
-                                                 temp[blocks[0,1]:]))
+                                                 temp[blocks[0,1]:])))
             elif k==8:
                 presentation[order]['gaps'] = blocks[1].tolist()
                 wn = np.random.normal(0,wnamp,size=blocks[1,1]-blocks[1,0])
+                wn = (wn/rms(wn))*scale(wndB)
                 temp = np.zeros(len(song[i]))
-                stims[order] = np.concatenate((temp[:blocks[1,0]],
+                stims.append(np.concatenate((temp[:blocks[1,0]],
                                                  wn,
-                                                 temp[blocks[1,1]:]))
+                                                 temp[blocks[1,1]:])))
             else:
                 print("Undefined stim type")
-    scale = np.max(stims)
-    pstims = np.zeros((size,len(song[0]),2))
-    for i in range(len(pstims)):
-        temp = (stims[i]/scale)*(2**15-1)
-        pstims[i] = ss.pulsestim(temp)
+    stims = np.asarray(stims)
+    #scale = np.max(stims)
+    #pstims = np.zeros((size,len(song[0]),2))
+    #for i in range(len(pstims)):
+        #temp = (stims[i]/scale)*(2**15-1)
+        #pstims[i] = ss.pulsestim(temp)
+        #pstims[i] = ss.pulsestim(stims[i])
 
-    return(Fs,stype,present_order,presentation,pstims,songname)
+    return(Fs,stype,present_order,presentation,stims,songname)
 
 def next_stim(stims,order,i,songname,Fs,stype=None):
     print("Presentation number "+str(i+1)+":")
     if not stype:
+        stim = ss.pulsestim(stims[(order[i]-1)%len(songname)])
         print(songname[(order[i]-1)%len(songname)])
-        sd.play(stims[(order[i]-1)%len(songname)],Fs)
+        sd.play(stim,Fs)
         sd.wait()
     else:
+        stim = ss.pulsestim(stims[(order[i]-1)],True)
         print(songname[(order[i]-1)//len(stype)]+", "+stype[(order[i]-1)%len(stype)])
-        sd.play(stims[(order[i]-1)],Fs)
+        sd.play(stim,Fs)
         sd.wait()
 
 def run_gap(bird,location,seed,rec_dir='/home/melizalab/Data',stimset='../Stims1'):
@@ -341,6 +369,7 @@ def run_chorus(bird,location,seed,rec_dir='/home/melizalab/Data',stimset='../Cho
     scenename = [os.path.basename(scene).strip('.wav') for scene in scenefiles]
     songs = []
     scenes = []
+    name = []
     for i in songfiles:
         Fs,s = read(i)
         songs.append(s)
@@ -363,6 +392,7 @@ def run_chorus(bird,location,seed,rec_dir='/home/melizalab/Data',stimset='../Cho
         stim[i,stimstart:stimstart+len(songs[i])] = songs[i]
         for j in range(len(scenes)):
             scenestim[(i*len(scenes))+j] = scenes[j] + stim[i]
+            name.append(songname[i]+' '+scenename[j])
     
     np.random.seed(seed)
     
@@ -406,7 +436,7 @@ def run_chorus(bird,location,seed,rec_dir='/home/melizalab/Data',stimset='../Cho
                     
                 socket.send_string('IsRecording')
                 print("IsRecording:", socket.recv().decode())
-                time.sleep(0.25)
+                time.sleep(0.5)
                 
                 if present_order[i] <= len(pstims):
                     songnum = present_order[i]-1
@@ -424,8 +454,8 @@ def run_chorus(bird,location,seed,rec_dir='/home/melizalab/Data',stimset='../Cho
                    sd.play(pscenes[scenenum],Fsc)
                    sd.wait()
                    presentation[i] = {
-                       "song":songname[songnum],
-                       "type":scenename[i//(len(songname)*2)],
+                       "song":name[scenenum].split(' ')[0],
+                       "type":name[scenenum].split(' ')[1],
                    }  
                    
                 
@@ -434,7 +464,7 @@ def run_chorus(bird,location,seed,rec_dir='/home/melizalab/Data',stimset='../Cho
                 socket.send_string('IsRecording')
                 print("IsRecording:",socket.recv().decode())
                 print("")
-                time.sleep(0.25)
+                time.sleep(0.5)
                 
             time.sleep(0.5)
             
@@ -450,8 +480,9 @@ if __name__ == '__main__':
     parser.add_argument('-l','--loc',help='Recording location',required=False)
     parser.add_argument('-s','--seed',help='Seed for syllable randomization',type=int,required=False,default=1)
     parser.add_argument('-d','--dir',help='Recording directory',required=False,default='/home/melizalab/Data')
-    parser.add_argument('-ss','--stimset',help='Directory of stimulus set',required=False,default='../Stims1')
+    parser.add_argument('-ss','--stimset',help='Directory of (familiar) stimulus set',required=False,default='../Stims1')
     args = parser.parse_args()
+    args.stimset = os.path.normpath(args.stimset)
     if args.experiment == 'induction':
         run_gap(args.bird,args.loc,args.seed,args.dir,args.stimset)
     elif args.experiment == 'chorus':

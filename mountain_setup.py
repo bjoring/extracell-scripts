@@ -26,6 +26,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('-d','--directory',help='Directory',required=True)
     args = parser.parse_args()
+    args.directory = os.path.normpath(args.directory)
     preprocess(args.directory)
     
     
