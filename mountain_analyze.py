@@ -15,24 +15,25 @@ import argparse
 import pandas as pd
 import json
 
-def analyze(bp, uuid, age, typ):
+def analyze(bp, uuid, age, typ, sex):
     recordings = os.listdir(bp)
     for i in recordings:
         fp = os.path.join(bp,i)
-        #clusters = glob.glob(os.path.join(fp,'ch_c*'))
-        #clusters = [cluster for cluster in clusters if os.path.isdir(cluster)]
-        #for cluster in clusters:
-            #make_pprox(cluster,fp,uuid,age,typ)
-        spikey(fp)
+        clusters = glob.glob(os.path.join(fp,'ch*_c*'))
+        clusters = [cluster for cluster in clusters if os.path.isdir(cluster)]
+        for cluster in clusters:
+            #make_pprox(cluster,fp,uuid,age,typ,sex)
+            spikey(fp)
             
 def spikey(fp):
     events = glob.glob(os.path.join(fp,'*.pprox'))
     events.sort()
-    #syll = pd.read_csv('../restoration_syllables.csv')
-    syll = pd.read_csv('../syllables.csv')
-    gap = []
-    replaced = []
-    added = []
+    #For new recordings:
+    syll = pd.read_csv('../restoration_syllables.csv')
+    
+    #For old recordings:
+    #syll = pd.read_csv('../syllables.csv')
+    
     for eventfile in events:
         
         with open(eventfile) as fl:
@@ -44,27 +45,56 @@ def spikey(fp):
         gapoff = {}
         spikes = []
         for t in range(len(data['pprox'])):
-            song.append(data['pprox'][t]['stimulus'])
-            condition.append(data['pprox'][t]['condition'])
-            spikes.append(data['pprox'][t]['event'])
+            #For new recordings:
+            if data['pprox'][t]['condition'] == 'continuous':
+                song.append(data['pprox'][t]['stimulus']+'-1')
+                song.append(data['pprox'][t]['stimulus']+'-2')
+                condition.append(data['pprox'][t]['condition']+'1')
+                condition.append(data['pprox'][t]['condition']+'2')
+                spikes.append(data['pprox'][t]['event'])
+                spikes.append(data['pprox'][t]['event'])
+            else:
+                songid = data['pprox'][t]['stimulus']+'-'+data['pprox'][t]['condition'][-1]
+                song.append(data['pprox'][t]['stimulus']+'-'+data['pprox'][t]['condition'][-1])
+                condition.append(data['pprox'][t]['condition'])
+                spikes.append(data['pprox'][t]['event'])
+                
             if 'gap_on' in data['pprox'][t].keys():
-                # Only for old data set, remove [0]/40 for new
-                gapon[song[t]] = data['pprox'][t]['gap_on'][0]/40
-                gapoff[song[t]] = data['pprox'][t]['gap_off'][0]/40
+                gapon[songid] = data['pprox'][t]['gap_on']
+                gapoff[songid] = data['pprox'][t]['gap_off']
+                
+            #For old recordings:
+            #song.append(data['pprox'][t]['stimulus'])
+            #condition.append(data['pprox'][t]['condition'])
+            #spikes.append(data['pprox'][t]['event'])
+            #if 'gap_on' in data['pprox'][t].keys():
+                #gapon[song[t]] = data['pprox'][t]['gap_on'][0]/40
+                #gapoff[song[t]] = data['pprox'][t]['gap_off'][0]/40
+                
         songset = np.unique(song)
+        print(songset)
         x = []
         y = []
         for s in song:
             x.append(gapon[s])
             y.append(gapoff[s])
+            
         gapon = x
         gapoff = y
+        
         for t in range(len(spikes)):
-            syllstart = syll['start'][syll['songid'] == song[t]][syll['start'] <= gapon[t]/1000+0.001][syll['end'] >= gapoff[t]/1000-0.001].values[0] * 1000
-            index = syll[syll['songid'] == song[t]][syll['start'] <= gapon[t]/1000+0.001][syll['end'] >= gapoff[t]/1000-0.001].index.values[0] + 1
+            #For new recordings:
+            syllstart = syll['start'][syll['songid'] == song[t][:-2]][syll['start'] <= gapon[t]/1000+0.001][syll['end'] >= gapoff[t]/1000-0.001].values[0] * 1000
+            index = syll[syll['songid'] == song[t][:-2]][syll['start'] <= gapon[t]/1000+0.001][syll['end'] >= gapoff[t]/1000-0.001].index.values[0] + 1
+            
+            #For old recordings:
+            #syllstart = syll['start'][syll['songid'] == song[t]][syll['start'] <= gapon[t]/1000+0.001][syll['end'] >= gapoff[t]/1000-0.001].values[0] * 1000
+            #index = syll[syll['songid'] == song[t]][syll['start'] <= gapon[t]/1000+0.001][syll['end'] >= gapoff[t]/1000-0.001].index.values[0] + 1
+            
             nextsyllend = syll['end'].at[index] * 1000
             spikes[t] = [spike for spike in spikes[t] if spike >= syllstart and spike <= nextsyllend]
             train.append(spk.SpikeTrain(spikes[t],[syllstart,nextsyllend]))
+            
         for s,stim in enumerate(songset):
             pairs = np.zeros((len(train)//len(songset),len(train)//len(songset)))
             subset = np.where(np.asarray(song) == stim)
@@ -78,7 +108,7 @@ def spikey(fp):
 
 
         
-def make_pprox(cluster,fp,uuid,age,typ):
+def make_pprox(cluster,fp,uuid,age,typ,sex):
     _schema = "https://meliza.org/spec:2/pprox.json#"
     obj = {"$schema": _schema}
     #obj.update(args.metadata)
@@ -96,6 +126,7 @@ def make_pprox(cluster,fp,uuid,age,typ):
     obj['bird-uuid'] = uuid
     obj['bird-age'] = age
     obj['bird-type'] = typ
+    obj['bird-sex'] = sex
     experiment = log['stimtype']
     obj['experiment'] = experiment
     if experiment == 'induction':
@@ -106,6 +137,11 @@ def make_pprox(cluster,fp,uuid,age,typ):
     obj['channel'] = os.path.basename(cluster).split('_')[0].strip('ch')
     obj['cluster'] = os.path.basename(cluster).split('_')[-1].strip('c')
     obj['seed'] = log['seed']
+    obj['location'] = log['location']
+    obj['hemisphere'] = log['hemisphere']
+    obj['x-coord'] = log['x-coordinates']
+    obj['y-coord'] = log['y-coordinates']
+    obj['z-coord'] = log['z-coordinates']
     
     pprox = []
     
@@ -178,6 +214,7 @@ if __name__ == '__main__':
     parser.add_argument('-u', '--uuid', help = 'Bird UUID', required = False, default = 'NA')
     parser.add_argument('-a', '--age', help = 'Bird age (days post-hatch)', required = False, default = 'NA')
     parser.add_argument('-t', '--type', help = 'Bird type (CR, FR, VI, etc.)', required = False, default = 'CR')
+    parser.add_argument('-s', '--sex', help = 'Bird sex (M, F, U))', required = False, default = 'U')
     args = parser.parse_args()
     args.directory = os.path.normpath(args.directory)
-    analyze(args.directory, args.uuid, args.age, args.type)
+    analyze(args.directory, args.uuid, args.age, args.type, args.sex)

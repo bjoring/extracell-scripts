@@ -122,7 +122,7 @@ def auditory_plot(fp):
     for song in songs:
         fig, axes = plt.subplots(len(conditions)+1,1,sharex='all',figsize=(5,7))
         
-        Fs,stim = read('../Recordings/Songs/old/'+song+'_gapnoise.wav')
+        Fs,stim = read('../Recordings/Songs/'+song+'_gapnoise1.wav')
         #Fs,stim = read('../Chorus/'+song+'.wav')
         #Fs,scene = read('../Chorus/scene63_0.wav')
         #stimstart = (len(scene)-len(stim))//2

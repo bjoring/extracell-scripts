@@ -33,10 +33,14 @@ def scale(dB):
     a0 = 0.00001*(2**15-1)
     return (a0*(10**(dB/20)))
 
-def write_log(bird,location,stimset,stimtype,songname,recpath,presentation,seed=None):
+def write_log(bird,location,hemi,xcoord,ycoord,zcoord,stimset,stimtype,songname,recpath,presentation,seed=None):
     log = {
     "bird":bird,
     "location":location,
+    "hemisphere":hemi,
+    "x-coordinates":xcoord,
+    "y-coordinates":ycoord,
+    "z-coordinates":zcoord,
     "seed":seed,
     "stimset":os.path.basename(stimset),
     "stimtype":stimtype,
@@ -180,7 +184,7 @@ def next_stim(stims,order,i,songname,Fs,stype=None):
         sd.play(stim,Fs)
         sd.wait()
 
-def run_gap(bird,location,seed,rec_dir='/home/melizalab/Data',stimset='../Stims1'):
+def run_gap(bird,location,hemi,xcoord,ycoord,zcoord,seed,rec_dir='/home/melizalab/Data',stimset='../Stims1'):
 
     # Basic start/stop commands
     start_cmd = 'StartRecord'
@@ -250,7 +254,7 @@ def run_gap(bird,location,seed,rec_dir='/home/melizalab/Data',stimset='../Stims1
                 
             time.sleep(0.5)
             
-            write_log(bird,location,stimset,experiment,songname,recpath,presentation,seed)
+            write_log(bird,location,hemi,xcoord,ycoord,zcoord,stimset,experiment,songname,recpath,presentation,seed)
             
             socket.send_string('StopAcquisition')
             print(socket.recv().decode())
@@ -477,14 +481,18 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('-e','--experiment',help='Experiment to run',required=False,default='induction',choices=['induction','selectivity','chorus'])
     parser.add_argument('-b','--bird',help='Bird ID',required=True)
-    parser.add_argument('-l','--loc',help='Recording location',required=False)
+    parser.add_argument('-l','--loc',help='Recording location',required=False,default='NA')
+    parser.add_argument('-hm','--hemi',help='Hemisphere of recording',required=False,default='NA')
+    parser.add_argument('-x','--xcoord',help='X coordinates (um)',required=False,type=float,default=0)
+    parser.add_argument('-y','--ycoord',help='Y coordinates (um)',required=False,type=float,default=0)
+    parser.add_argument('-z','--zcoord',help='Z coordinates (um)',required=False,type=float,default=0)
     parser.add_argument('-s','--seed',help='Seed for syllable randomization',type=int,required=False,default=1)
     parser.add_argument('-d','--dir',help='Recording directory',required=False,default='/home/melizalab/Data')
     parser.add_argument('-ss','--stimset',help='Directory of (familiar) stimulus set',required=False,default='../Stims1')
     args = parser.parse_args()
     args.stimset = os.path.normpath(args.stimset)
     if args.experiment == 'induction':
-        run_gap(args.bird,args.loc,args.seed,args.dir,args.stimset)
+        run_gap(args.bird,args.loc,args.hemi,args.xcoord,args.ycoord,args.zcoord,args.seed,args.dir,args.stimset)
     elif args.experiment == 'chorus':
         run_chorus(args.bird,args.loc,args.seed,args.dir,args.stimset)
     else:
