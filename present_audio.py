@@ -61,7 +61,7 @@ def make_stims(stimset,seed):
     else:
         song,Fs,songname = ss.dBclean(stimset)
     stype = ['continuous','continuousnoise1','continuousnoise2','gap1','gap2','gapnoise1','gapnoise2','noise1','noise2']
-    syllables = pd.read_csv('../restoration_syllables.csv')
+    syllables = pd.read_csv('../gap-locations.csv')
     conditions = len(stype)
     trials = 10
     size = len(songname)*conditions
@@ -70,29 +70,28 @@ def make_stims(stimset,seed):
     stims = []
     np.random.seed(seed)
     for i in range(len(songname)):    
-        ssyll = syllables.loc[syllables.songid==songname[i]]
-        sg = np.random.choice(ssyll.iloc[1:-1].index,2,replace=False)
+        ssyll = syllables.loc[syllables.song==songname[i]]
         blocks = np.zeros((2,2))
-        blocks[:,0] = np.asarray([ssyll.start[sg[x]] for x in range(2)])
-        blocks[:,1] = np.asarray([ssyll.end[sg[x]] for x in range(2)])
+        blocks[:,0] = np.asarray((ssyll.start1.values[0],ssyll.start2.values[0]))
+        blocks[:,1] = np.asarray((ssyll.end1.values[0],ssyll.end2.values[0]))
         blocks = blocks*Fs
         blocks = blocks.astype(int)
         gsize = int(0.1*Fs)
         wnamp = 25000
         wndB = 85
         if blocks[0,1]-blocks[0,0] > gsize:
-            #middle = np.mean(blocks,1)
-            #blocks[0,0] = middle[0]-int(gsize/2)-50
             blocks[0,1] = blocks[0,0]+gsize
         if blocks[1,1]-blocks[1,0] > gsize:
-            #middle = np.mean(blocks,1)
-            #blocks[1,0] = middle[1]-int(gsize/2)-50
             blocks[1,1] = blocks[1,0]+gsize
-        N = 50
+        N = 120
         ix = np.arange(N*3)
         signal = np.cos(2*np.pi*ix/float(N*2))*0.5+0.5
-        fadein = signal[50:100]
-        fadeout = signal[0:50]
+        fadein = signal[120:240]
+        fadeout = signal[0:120]
+        wn1 = np.random.normal(0,wnamp,size=blocks[0,1]-blocks[0,0])
+        wn1 = (wn1/rms(wn1))*scale(wndB)
+        wn2 = np.random.normal(0,wnamp,size=blocks[1,1]-blocks[1,0])
+        wn2 = (wn2/rms(wn2))*scale(wndB)
         for k in range(conditions):
             order = (i*conditions)+k
             presentation[order] = {
@@ -103,17 +102,14 @@ def make_stims(stimset,seed):
                 stims.append(song[i])
             elif k==1:
                 presentation[order]['gaps'] = blocks[0].tolist()
-                wn = np.random.normal(0,wnamp,size=blocks[0,1]-blocks[0,0])
-                wn = (wn/rms(wn))*scale(wndB)
                 stims.append(np.concatenate((song[i][:blocks[0,0]],
-                                                 song[i][blocks[0,0]:blocks[0,1]]+wn,
+                                                 song[i][blocks[0,0]:blocks[0,1]]+wn1,
                                                  song[i][blocks[0,1]:])))   
             elif k==2:
                 presentation[order]['gaps'] = blocks[1].tolist()
-                wn = np.random.normal(0,wnamp,size=blocks[1,1]-blocks[1,0])
-                wn = (wn/rms(wn))*scale(wndB)
+
                 stims.append(np.concatenate((song[i][:blocks[1,0]],
-                                                 song[i][blocks[1,0]:blocks[1,1]]+wn,
+                                                 song[i][blocks[1,0]:blocks[1,1]]+wn2,
                                                  song[i][blocks[1,1]:])))         
             elif k==3:
                 presentation[order]['gaps'] = blocks[0].tolist()
@@ -131,43 +127,29 @@ def make_stims(stimset,seed):
                                                  song[i][blocks[1,1]:])))
             elif k==5:
                 presentation[order]['gaps'] = blocks[0].tolist()
-                wn = np.random.normal(0,wnamp,size=blocks[0,1]-blocks[0,0])
-                wn = (wn/rms(wn))*scale(wndB)
                 stims.append(np.concatenate((song[i][:blocks[0,0]],
-                                                 wn,
+                                                 wn1,
                                                  song[i][blocks[0,1]:])))
             elif k==6:
                 presentation[order]['gaps'] = blocks[1].tolist()
-                wn = np.random.normal(0,wnamp,size=blocks[1,1]-blocks[1,0])
-                wn = (wn/rms(wn))*scale(wndB)
                 stims.append(np.concatenate((song[i][:blocks[1,0]],
-                                                 wn,
+                                                 wn2,
                                                  song[i][blocks[1,1]:])))
             elif k==7:
                 presentation[order]['gaps'] = blocks[0].tolist()
-                wn = np.random.normal(0,wnamp,size=blocks[0,1]-blocks[0,0])
-                wn = (wn/rms(wn))*scale(wndB)
                 temp = np.zeros(len(song[i]))
                 stims.append(np.concatenate((temp[:blocks[0,0]],
-                                                 wn,
+                                                 wn1,
                                                  temp[blocks[0,1]:])))
             elif k==8:
                 presentation[order]['gaps'] = blocks[1].tolist()
-                wn = np.random.normal(0,wnamp,size=blocks[1,1]-blocks[1,0])
-                wn = (wn/rms(wn))*scale(wndB)
                 temp = np.zeros(len(song[i]))
                 stims.append(np.concatenate((temp[:blocks[1,0]],
-                                                 wn,
+                                                 wn2,
                                                  temp[blocks[1,1]:])))
             else:
                 print("Undefined stim type")
     stims = np.asarray(stims)
-    #scale = np.max(stims)
-    #pstims = np.zeros((size,len(song[0]),2))
-    #for i in range(len(pstims)):
-        #temp = (stims[i]/scale)*(2**15-1)
-        #pstims[i] = ss.pulsestim(temp)
-        #pstims[i] = ss.pulsestim(stims[i])
 
     return(Fs,stype,present_order,presentation,stims,songname)
 

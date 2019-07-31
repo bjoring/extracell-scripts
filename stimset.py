@@ -92,7 +92,7 @@ def dBclean(f='../Stims1'):
     songs = []
     for i in songfiles:
         fs,s = read(i)
-        songs.append((s/rms(s))*scale(75))
+        songs.append((s/rms(s))*scale(70))
     stims = np.asarray(songs)
     #stims = np.zeros((len(songs),len(songs[0]),2))
     #for i in range(len(songs)):
