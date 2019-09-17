@@ -22,7 +22,7 @@ def analyze(bp, uuid, age, typ, sex):
         clusters = glob.glob(os.path.join(fp,'ch*_c*'))
         clusters = [cluster for cluster in clusters if os.path.isdir(cluster)]
         for cluster in clusters:
-            #make_pprox(cluster,fp,uuid,age,typ,sex)
+            make_pprox(cluster,fp,uuid,age,typ,sex)
             spikey(fp)
             
 def spikey(fp):
@@ -72,7 +72,6 @@ def spikey(fp):
                 #gapoff[song[t]] = data['pprox'][t]['gap_off'][0]/40
                 
         songset = np.unique(song)
-        print(songset)
         x = []
         y = []
         for s in song:

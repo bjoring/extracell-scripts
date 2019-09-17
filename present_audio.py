@@ -458,10 +458,86 @@ def run_chorus(bird,location,seed,rec_dir='/home/melizalab/Data',stimset='../Cho
             
             socket.send_string('StopAcquisition')
             print(socket.recv().decode())
+            
+def run_mismatch(bird,rec_dir='/home/melizalab/Data',stimset='../Stims1'):
+
+    # Basic start/stop commands
+    start_cmd = 'StartRecord'
+    stop_cmd = 'StopRecord'
+    experiment = 'mismatch'
+    
+    print("Bird:",bird)
+    print("Stimulus directory:",stimset)
+    print("Outer directory:", rec_dir)
+    
+    command = start_cmd + ' RecDir=%s' % rec_dir + ' PrependText=%s' % bird + ' AppendText=%s' % experiment
+
+    # Connect network handler
+    ip = '127.0.0.1'
+    port = 5556
+    timeout = 1.
+
+    url = "tcp://%s:%d" % (ip, port)
+    
+    #Fs,stype,present_order,presentation,stims,songname = make_stims(stimset,seed)
+    
+    song,Fs,songname = ss.dBclean(stimset)
+    
+    with zmq.Context() as context:
+        with context.socket(zmq.REQ) as socket:
+            socket.RCVTIMEO = int(timeout * 1000)  # timeout in milliseconds
+            socket.connect(url)
+
+            # Start data acquisition
+            socket.send_string('StartAcquisition')
+            print(socket.recv().decode())
+            time.sleep(5)
+
+            socket.send_string('IsAcquiring')
+            print("IsAcquiring:", socket.recv().decode())
+            print("")
+            
+            socket.send_string(command)
+            print(socket.recv().decode())
+
+            for i in range(len(song)):
+                
+                if i == 0:
+                    socket.send_string('IsRecording')
+                    print("IsRecording:", socket.recv().decode())
+                    socket.send_string('GetRecordingPath')
+                    recpath = socket.recv()
+                    print("Recording path:", recpath.decode())
+                    print("")
+                else:
+                    socket.send_string(start_cmd)
+                    print(socket.recv().decode())
+                    
+                socket.send_string('IsRecording')
+                print("IsRecording:", socket.recv().decode())
+                time.sleep(10)
+                
+                stim = ss.pulsestim(song[i])
+                print(songname[i])
+                sd.play(stim,Fs)
+                sd.wait()
+                
+                time.sleep(10)
+                socket.send_string(stop_cmd)
+                print(socket.recv().decode())
+                socket.send_string('IsRecording')
+                print("IsRecording:",socket.recv().decode())
+                print("")
+                time.sleep(40)
+                
+            time.sleep(2)
+            
+            socket.send_string('StopAcquisition')
+            print(socket.recv().decode())
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('-e','--experiment',help='Experiment to run',required=False,default='induction',choices=['induction','selectivity','chorus'])
+    parser.add_argument('-e','--experiment',help='Experiment to run',required=False,default='induction',choices=['induction','selectivity','chorus','mismatch'])
     parser.add_argument('-b','--bird',help='Bird ID',required=True)
     parser.add_argument('-l','--loc',help='Recording location',required=False,default='NA')
     parser.add_argument('-hm','--hemi',help='Hemisphere of recording',required=False,default='NA')
@@ -477,5 +553,7 @@ if __name__ == '__main__':
         run_gap(args.bird,args.loc,args.hemi,args.xcoord,args.ycoord,args.zcoord,args.seed,args.dir,args.stimset)
     elif args.experiment == 'chorus':
         run_chorus(args.bird,args.loc,args.seed,args.dir,args.stimset)
+    elif args.experiment == 'mismatch':
+        run_mismatch(args.bird,args.dir,args.stimset)
     else:
         run_clean(args.bird,args.loc,args.dir,args.stimset)

@@ -120,26 +120,39 @@ def auditory_plot(fp):
     conditions = np.unique(info[:,1])
     #conditions = ['no-scene','scene63']
     for song in songs:
-        fig, axes = plt.subplots(len(conditions)+1,1,sharex='all',figsize=(5,7))
+        fig, axes = plt.subplots((len(conditions)//2)+2,2,sharex='all',figsize=(10,7))
         
-        Fs,stim = read('../Recordings/Songs/'+song+'_gapnoise1.wav')
+        Fs,stim1 = read('../Recordings/Songs/'+song+'_gapnoise1.wav')
+        Fs,stim2 = read('../Recordings/Songs/'+song+'_gapnoise2.wav')
         #Fs,stim = read('../Chorus/'+song+'.wav')
         #Fs,scene = read('../Chorus/scene63_0.wav')
         #stimstart = (len(scene)-len(stim))//2
         #stimscene = np.zeros(len(scene))
         #stimscene[stimstart:stimstart+len(stim)] = stimscene[stimstart:stimstart+len(stim)]+stim
         #Pxx = spg(stimscene,Fs)
-        Pxx,freqs = spg(stim,Fs)
+        Pxx1,freqs1 = spg(stim1,Fs)
         cmap = sns.cubehelix_palette(dark=0,light=1,as_cmap=True)
         xmin = 0.0
-        xmax = Pxx.shape[1]/1000
+        xmax = Pxx1.shape[1]/1000
         #freqs = np.arange(0,10000,10000/Pxx.shape[0])
-        extent = xmin,xmax,freqs[0],freqs[-1]
-        imgplot = axes[0].imshow(np.flipud(10.*Pxx),aspect='auto',cmap=cmap,extent=extent,vmin=np.min(Pxx),vmax=np.max(Pxx))
+        extent = xmin,xmax,freqs1[0],freqs1[-1]
+        imgplot = axes[0,0].imshow(np.flipud(10.*Pxx1),aspect='auto',cmap=cmap,extent=extent,vmin=np.min(Pxx1),vmax=np.max(Pxx1))
         imgplot.set_clim(-10.,40.)
-        axes[0].set_title(song)
-        axes[0].get_xaxis().set_tick_params(direction='out')
-        axes[0].get_yaxis().set_tick_params(direction='out')
+        axes[0,0].set_title(song)
+        axes[0,0].get_xaxis().set_tick_params(direction='out')
+        axes[0,0].get_yaxis().set_tick_params(direction='out')
+        
+        Pxx2,freqs2 = spg(stim2,Fs)
+        cmap = sns.cubehelix_palette(dark=0,light=1,as_cmap=True)
+        xmin = 0.0
+        xmax = Pxx2.shape[1]/1000
+        #freqs = np.arange(0,10000,10000/Pxx.shape[0])
+        extent = xmin,xmax,freqs2[0],freqs2[-1]
+        imgplot = axes[0,1].imshow(np.flipud(10.*Pxx2),aspect='auto',cmap=cmap,extent=extent,vmin=np.min(Pxx2),vmax=np.max(Pxx2))
+        imgplot.set_clim(-10.,40.)
+        axes[0,1].set_title(song)
+        axes[0,1].get_xaxis().set_tick_params(direction='out')
+        axes[0,1].get_yaxis().set_tick_params(direction='out')
         
 #        stimscene = stimscene+scene
 #        Pxx = spg(stimscene,Fs)
@@ -152,19 +165,34 @@ def auditory_plot(fp):
 #        axes[2].get_xaxis().set_tick_params(direction='out')
 #        axes[2].get_yaxis().set_tick_params(direction='out')
         
-        for i in range(1,len(conditions)+1):
-            with open(os.path.join(fp,'_'.join((song,conditions[i-1]))+'.toe_lis')) as fs:
+        for i in range(len(conditions)):
+            with open(os.path.join(fp,'_'.join((song,conditions[i]))+'.toe_lis')) as fs:
                 times = tl.read(fs)
             raster = [time for sublist in times[0] for time in sublist]
             raster = np.asarray(raster)/1000.0
             profile = [len(times[0][x]) for x in range(len(times[0]))]
             y = np.repeat(np.arange(1,11),profile)
-            axes[i].plot(raster,y,'|',color="black",markersize=4)
-            axes[i].set_xlim([xmin,xmax])
-            axes[i].set_ylim([0,10])
-            axes[i].set_title(conditions[i-1])
-            axes[i].get_xaxis().set_tick_params(direction='out')
-            axes[i].get_yaxis().set_tick_params(direction='out')
+            if '1' in conditions[i]:
+                c = 0
+            else:
+                c = 1
+            if conditions[i] == 'continuous':
+                r = 1
+                axes[r,0].plot(raster,y,'|',color="black",markersize=4)
+                axes[r,0].set_xlim([xmin,xmax])
+                axes[r,0].set_ylim([0,12])
+                axes[r,0].set_title(conditions[i])
+                axes[r,0].get_xaxis().set_tick_params(direction='out')
+                axes[r,0].get_yaxis().set_tick_params(direction='out')
+            else:
+                r = ((i+1)//2)+1
+                
+            axes[r,c].plot(raster,y,'|',color="black",markersize=4)
+            axes[r,c].set_xlim([xmin,xmax])
+            axes[r,c].set_ylim([0,12])
+            axes[r,c].set_title(conditions[i])
+            axes[r,c].get_xaxis().set_tick_params(direction='out')
+            axes[r,c].get_yaxis().set_tick_params(direction='out')
         #fig.tight_layout()
         plt.savefig(os.path.join(fp,song+'.pdf'))
         plt.close()
