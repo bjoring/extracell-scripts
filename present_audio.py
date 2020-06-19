@@ -509,31 +509,45 @@ def run_mismatch(bird,rec_dir='/home/melizalab/Data',stimset='../Stims1'):
                     recpath = socket.recv()
                     print("Recording path:", recpath.decode())
                     print("")
-                else:
-                    socket.send_string(start_cmd)
-                    print(socket.recv().decode())
+                #else:
+                    #socket.send_string(start_cmd)
+                    #print(socket.recv().decode())
                     
                 socket.send_string('IsRecording')
                 print("IsRecording:", socket.recv().decode())
                 time.sleep(10)
                 
-                stim = ss.pulsestim(song[i])
+                #stim = ss.pulsestim(song[i])
                 print(songname[i])
                 sd.play(stim,Fs)
                 sd.wait()
                 
                 time.sleep(10)
-                socket.send_string(stop_cmd)
-                print(socket.recv().decode())
+                #socket.send_string(stop_cmd)
+                #print(socket.recv().decode())
                 socket.send_string('IsRecording')
                 print("IsRecording:",socket.recv().decode())
                 print("")
                 time.sleep(40)
-                
+            
+            socket.send_string(stop_cmd)
+            print(socket.recv().decode())
             time.sleep(2)
             
             socket.send_string('StopAcquisition')
             print(socket.recv().decode())
+
+            log = {
+                "bird":bird,
+                "stimset":os.path.basename(stimset),
+                "stimtype":stimtype,
+                "songs":songname,
+                "path":recpath.decode(),
+            }
+            with open(os.path.join(recpath.decode(),os.path.basename(recpath.decode())+'.log'),'w') as f:
+                json.dump(log,f)
+            print("Log written to file.")
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
