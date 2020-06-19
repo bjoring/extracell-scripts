@@ -23,7 +23,7 @@ def analyze(bp, uuid, age, typ, sex):
         clusters = [cluster for cluster in clusters if os.path.isdir(cluster)]
         for cluster in clusters:
             make_pprox(cluster,fp,uuid,age,typ,sex)
-            spikey(fp)
+            #spikey(fp)
             
 def spikey(fp):
     events = glob.glob(os.path.join(fp,'*.pprox'))
